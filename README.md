@@ -2,167 +2,178 @@
 
 ![Tiny Lua Compiler (TLC)](https://github.com/bytexenon/Tiny-Lua-Compiler/assets/125568681/41cf5285-e31d-4b27-a8a8-ee83a7300f1f)
 
-**A minimal, educational Lua 5.1 compiler written in pure Lua**
+**An educational Lua 5.1 compiler, bytecode emitter, and VM in one Lua file**
 
-_Inspired by [Jamie Kyle's The Super Tiny Compiler](https://github.com/jamiebuilds/the-super-tiny-compiler) written in JavaScript_
+_Inspired by [Jamie Kyle's The Super Tiny Compiler](https://github.com/jamiebuilds/the-super-tiny-compiler)_
+
+![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
+![Lua](https://img.shields.io/badge/Lua-5.1--5.5-blue)
 
 </div>
 
-## Features
+**_Tiny Lua Compiler (TLC)_** is a complete Lua 5.1 compiler written in pure Lua.
+It tokenizes source code, builds an AST (Abstract Syntax Tree), lowers it into
+Lua 5.1 function prototypes, emits real Lua 5.1 bytecode, and can execute those
+prototypes in its own register-based VM. The whole core lives in [tlc.lua](tlc.lua).
 
-- **Heavily Commented & Educational**: The code is written to be read, with over 50% of the file dedicated to comments explaining the what, how, and why of each step.
-- [**Self-compiling**](<https://en.wikipedia.org/wiki/Self-hosting_(compilers)>): TLC can compile itself and run the result inside its own VM (Virtual Machine).
-- **Zero dependencies**: Written in standard Lua 5.1 with no external libraries. Just one file and the Lua interpreter are all you need.
-- **Complete Pipeline:** Includes a tokenizer, parser, code generator, compiler, and a virtual machine, all in one file.
-- **Speed**: While education is the priority, the tokenizer uses optimized lookups and the compiler is designed efficiently, making it quite fast for a compiler written in a high-level language.
-- **Tests**: Includes a comprehensive test suite with nearly 100% coverage, ensuring the compiler is as reliable as it is educational.
+Most compiler learning material falls into one of two buckets. On one side are
+toy compilers that are easy to finish but skip the parts that make real
+languages interesting. On the other are production compilers that are real, but
+so large that the main ideas get buried under architecture and history. TLC is
+meant to sit in the middle. It is small enough that you can read it in a
+weekend, but real enough to deal with lexical scoping, closures, upvalues,
+varargs, multiple returns, method calls, loops, tail calls, bytecode encoding,
+and execution.
 
-### [Want to jump into the code? Click here](https://github.com/bytexenon/Tiny-Lua-Compiler/blob/main/tlc.lua)
+It is not a production compiler, and it is not trying to replace the standard
+Lua implementation. It is an educational compiler that tries to stay honest:
+small enough to understand, complete enough to be worth studying.
 
----
+## It can compile itself
 
-### Why should I care?
-
-That's fair, most people don't really have to think about compilers in their day
-jobs. However, compilers are all around you, tons of the tools you use are based
-on concepts borrowed from compilers.
-
-### Why Lua?
-
-Lua is a simple programming language that is easy to learn and use. It doesn't
-have complex syntax or a lot of features, which makes it a great language to
-make a compiler for.
-
-### But compilers are scary!
-
-Yes, they are. But that's our fault (the people who write compilers), we've
-taken something that is reasonably straightforward and made it so scary that
-most think of it as this totally unapproachable thing that only the nerdiest of
-the nerds are able to understand.
-
-### Example usage?
-
-The compiler is written in a way that it can be used as a library.
-Here is an example of how you can use it:
+TLC can compile its own source code and run the result inside its own VM:
 
 ```lua
---[[
-  EXAMPLE: COMPILE AND EXECUTE LUA CODE WITH TLC
-  ----------------------------------------------
-  Demonstrates the full compilation pipeline from
-  source code to execution.
---]]
+local tlc  = require("tlc")
+local tlc2 = tlc.run(io.open("tlc.lua"):read("*a"))
+tlc2.run("print('Hello from a compiler running inside itself')")
+```
 
+That means a compiler written in Lua is compiling a compiler written in Lua,
+and then the compiled compiler is running new Lua code, all without leaving
+the host process.
+
+## Try it
+
+```bash
+git clone https://github.com/bytexenon/Tiny-Lua-Compiler.git
+cd Tiny-Lua-Compiler
+
+# Run the code inside TLC's own VM.
+lua5.1 -e "require('tlc').run(\"print('Hello from TLC!')\")"
+
+# Compile to a binary .luac chunk and run it with the standard Lua VM.
+lua5.1 -e "io.open('out.luac','wb'):write(require('tlc').compile('print(42)'))"
+lua5.1 out.luac
+
+lua5.1 tests/test.lua
+```
+
+You can also use TLC as a library, at whatever level of detail you need:
+
+```lua
 local tlc = require("tlc")
 
--- 1. Source code to compile
-local source = [[
-  for i = 1, 3 do
-    print("Hello from TLC! " .. i)
-  end
-]]
+-- One-liner: compile and run.
+tlc.run("print('Hello from TLC!')")
 
--- 2. Compilation Pipeline
--- -----------------------
+-- Compile to a binary .luac chunk that the standard Lua VM can load.
+local bytecode = tlc.compile("return 21 * 2")
+-- io.open("out.luac", "wb"):write(bytecode) -- Save to disk if you want.
 
--- Tokenize: Raw text -> Stream of tokens
-local tokens = tlc.tokenize(source)
+-- Walk the pipeline stage by stage.
+local tokens = tlc.tokenize("local x = 1 + 2; return x")
+local ast    = tlc.parseTokens(tokens)
+local proto  = tlc.generate(ast)
+local value  = tlc.execute(proto)
 
--- Parse: Stream of tokens -> Abstract Syntax Tree (AST)
-local ast = tlc.parseTokens(tokens)
-
--- Generate Code: AST -> Function Prototype (Intermediate Representation)
-local proto = tlc.generate(ast)
-
--- 3. Execution
--- Run the prototype in the Virtual Machine
-tlc.execute(proto)
-
---[[
-  EXPECTED OUTPUT:
-  Hello from TLC! 1
-  Hello from TLC! 2
-  Hello from TLC! 3
---]]
+print(value) -- 3
 ```
 
-### Okay so where do I begin?
+## Why this file is worth reading
 
-Awesome! Head on over to the [tlc.lua](https://github.com/bytexenon/Tiny-Lua-Compiler/blob/main/tlc.lua) file.
+The code runs in a straight line. Utilities first, then the tokenizer, the
+parser, the code generator, the bytecode emitter, the VM, and the public API -
+in that order, nothing out of place. You can trace a single source program
+through every stage without losing the thread.
 
-### What isn't covered? (Non-Goals)
+The implementation also keeps the details that toy compilers skip. Character
+classification uses precomputed lookup tables. Operator matching uses a trie for
+longest-prefix matching - no hand-rolled lookahead. Expressions go through
+precedence climbing rather than a grammar rule per level. Concatenation chains
+are flattened into a single `CONCAT`. Floating-point numbers are packed to
+IEEE 754 by hand, without `string.pack`. Upvalue capture and `OP_CLOSE` are
+handled explicitly.
 
-Because TLC is designed to fit in a single file and be easily understood, we decided to leave out features that add significant complexity without teaching core compiler concepts:
+These are not polish. They are where real compiler behavior starts to show up.
+Skip them and you learn the shape of compilation. Keep them and you learn how
+it actually works.
 
-- **Debug Symbols:** We don't strip line numbers or debug info, we never generate them! This drastically simplifies the Tokenizer and Parser.
-- **[Constant Folding](https://en.wikipedia.org/wiki/Constant_folding):** Standard Lua converts `local x = 2 + 3` into `local x = 5` at compile time. TLC calculates this at runtime.
-- **Unused Opcodes:** We skip `TESTSET` (it's just an optimization), and massive table constructors (over ~25k items).
+## What TLC covers, and what it does not
 
-Everything else should work just like standard Lua 5.1!
+TLC covers a large enough slice of Lua 5.1 to feel real:
 
-### Tests & Benchmarking
+- Lexical scoping, closures, upvalue capture and closing
+- Numeric and generic `for`, `while`, `repeat`, `do`, `break`, `return`
+- `if` / `elseif` / `else`
+- Method calls (`:` syntax), table constructors
+- Multiple returns, varargs (`...`), tail call optimization
+- Long strings, string escapes, hex numbers, scientific notation
+- Full Lua 5.1 bytecode emission - output loads in the standard VM
 
-Run the test suite with:
+What it deliberately leaves out is just as important. No constant folding. No
+debug information - that is the table mapping each instruction to a source line;
+without it, error messages show no line numbers, but the bytecode is otherwise
+correct.
 
-```bash
-lua tests/test.lua
-```
+The biggest omission is metamethod dispatch. Write `a + b` when `a` is a table
+and standard Lua checks for `__add`. TLC's VM skips this entirely - operators
+work only on native types. That removes a real feature, but it keeps the VM
+from becoming an object system.
 
-Run the benchmarks with:
+The tradeoff is deliberate. TLC is trying to be a real compiler you can
+actually finish reading.
 
-```bash
-lua benchmarks/benchmark.lua
-```
+## Correctness
 
-### AST Node Specifications
+The test suite compiles each case with both TLC and standard Lua, then compares
+the results side by side. No mock expectations - if TLC produces different
+output, the test fails.
 
-The parser generates a tree of nodes. Here is the specification for each node type.
+This catches the mistakes educational compilers usually get away with: wrong
+operator precedence, broken closure semantics, multi-return adjustment errors,
+loop control flow bugs, and incorrect literal parsing, among others.
 
-<details>
-<summary>Click to expand AST Specification</summary>
+## API
 
 ```lua
--- Literals & Identifiers
-{ kind = "Variable", name = <string>, variableType = <"Local" | "Global" | "Upvalue"> }
-{ kind = "StringLiteral", value = <string> }
-{ kind = "NumericLiteral", value = <number> }
-{ kind = "BooleanLiteral", value = <bool> }
-{ kind = "NilLiteral" }
-{ kind = "VarargExpression" }
+local tlc = require("tlc")
 
--- Expressions
-{ kind = "FunctionExpression", body = <Block>, parameters = <list_of_strings>, isVarArg = <bool> }
-{ kind = "UnaryOperator", operator = <string>, operand = <node> }
-{ kind = "BinaryOperator", operator = <string>, left = <node>, right = <node> }
-{ kind = "FunctionCall", callee = <node>, arguments = <list_of_nodes>, isMethodCall = <bool> }
-{ kind = "IndexExpression", base = <node>, index = <node>, isPrecomputed = <bool>? }
-{ kind = "TableConstructor", elements = <list_of_TableElement> }
-{ kind = "TableElement", key = <node>, value = <node>, isImplicitKey = <bool> }
-{ kind = "ParenthesizedExpression", expression = <node> }
+tlc.run(code, env?, ...?)
+tlc.compile(code)
+tlc.compileToProto(code)
+tlc.parse(code)
+tlc.tokenize(code)
 
--- Statements
-{ kind = "LocalDeclarationStatement", variables = <list_of_strings>, initializers = <list_of_nodes> }
-{ kind = "LocalFunctionDeclaration", name = <string>, body = <FunctionExpression> }
-{ kind = "AssignmentStatement", lvalues = <list_of_nodes>, expressions = <list_of_nodes> }
-{ kind = "CallStatement", expression = <FunctionCall> }
-{ kind = "IfClause", condition = <node>, body = <Block> }
-{ kind = "IfStatement", clauses = <list_of_IfClauses>, elseClause = <Block>? }
-{ kind = "WhileStatement", condition = <node>, body = <Block> }
-{ kind = "RepeatStatement", body = <Block>, condition = <node> }
-{ kind = "ForNumericStatement", variable = <Identifier>, start = <node>, limit = <node>, step = <node>?, body = <Block> }
-{ kind = "ForGenericStatement", iterators = <list_of_strings>, expressions = <list_of_nodes>, body = <Block> }
-{ kind = "DoStatement", body = <Block> }
-{ kind = "ReturnStatement", expressions = <list_of_nodes> }
-{ kind = "BreakStatement" }
-
--- Program Structure
-{ kind = "Block", statements = <list_of_statement> }
-{ kind = "Program", body = <Block> }
+tlc.parseTokens(tokens)
+tlc.generate(ast)
+tlc.emit(proto)
+tlc.execute(proto, env?, ...?)
 ```
 
-</details>
+[docs/api.md](docs/api.md) documents the public API and
+[docs/ast.md](docs/ast.md) documents the AST shape.
 
-### Support The Tiny Lua Compiler (TLC)
+## Where to start
 
-I don't take donations, but you can support TLC by starring the repository and sharing it with others.
-If you find a bug or have a feature request, feel free to open an issue or submit a pull request.
+Read this file for the big picture, then read [tlc.lua](tlc.lua) from top to
+bottom. After that, [docs/api.md](docs/api.md) and [docs/ast.md](docs/ast.md)
+fill in the reference material, and [tests](tests) show the behavioral surface
+area.
+
+TLC runs on Lua 5.1 through 5.5, although the generated bytecode targets Lua
+5.1.
+
+Contributions are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). If you
+report a bug, please include the input code, expected behavior, actual
+behavior, and Lua version.
+
+## See also
+
+- [The Super Tiny Compiler](https://github.com/jamiebuilds/the-super-tiny-compiler) - the original inspiration; a compiler written in JavaScript in ~200 lines
+- [FiOne](https://github.com/Rerumu/FiOne) - a Lua-in-Lua VM, more complete than TLC's but less focused on readability
+- [Lua 5.1 source](https://www.lua.org/source/5.1/) - the reference implementation; `llex.c`, `lparser.c`, and `lvm.c` are the most relevant files
+
+## License
+
+MIT. See [LICENSE](LICENSE).
