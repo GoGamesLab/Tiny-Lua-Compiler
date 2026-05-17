@@ -2131,7 +2131,7 @@ function CodeGenerator:createPrototype(properties)
     numParams = properties.numParams or 0,
     isVararg  = properties.isVararg  or false,
 
-    -- Internal look up tables to avoid O(n) searches when referencing constants
+    -- Internal lookup tables to avoid O(n) searches when referencing constants
     -- and upvalues by name. These will get removed during finalization, since
     -- the VM only needs the lists, not the lookups.
     constantLookup = {}, -- format: {[constant] = index in proto.constants}
@@ -2196,7 +2196,7 @@ function CodeGenerator:freeIfRegister(rkOperand)
   -- Is this a constant? We can't free it.
   if rkOperand < 0 then return end
 
-  -- Register free'ing must happen in strict LIFO (last-in-first-out) order to
+  -- Register freeing must happen in strict LIFO (last-in-first-out) order to
   -- avoid accidentally freeing registers that are still in use. Only the most
   -- recently allocated register can be freed at any given time.
   if rkOperand ~= self.currentScope.allocatedRegisters - 1 then
@@ -2332,7 +2332,7 @@ function CodeGenerator:patchJump(fromPC, toPC)
   end
 
   -- NOTE: `JMP` uses the `sBx` operand for the jump offset, but in our table
-  -- it represented as the `b` field for simplicity.
+  -- it is represented as the `b` field for simplicity.
   instruction.b = toPC - (fromPC + 1)
 end
 
